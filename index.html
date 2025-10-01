@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Matematch</title>
+  <style>
+    :root { --bg1:#4B0082; --bg2:#6A0DAD; --card:#8A2BE2; }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, sans-serif;
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      color:#fff;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      height:100vh;
+      padding:1rem;
+    }
+    .container{
+      background:var(--card);
+      padding:1.8rem;
+      border-radius:16px;
+      text-align:center;
+      box-shadow:0 8px 24px rgba(0,0,0,0.35);
+      width:100%;
+      max-width:480px;
+    }
+    h1{margin:0 0 0.6rem;font-size:1.9rem}
+    #question{font-size:1.4rem;margin:1rem 0}
+    input[type="number"]{
+      padding:10px;
+      font-size:1.1rem;
+      width:110px;
+      text-align:center;
+      border-radius:10px;
+      border:2px solid rgba(255,255,255,0.3);
+      background:rgba(255,255,255,0.06);
+      color:#fff;
+    }
+    .controls{margin-top:12px}
+    button{
+      padding:10px 16px;
+      margin:0.4rem;
+      font-size:1rem;
+      border-radius:10px;
+      border:none;
+      cursor:pointer;
+      transition:all .15s ease;
+    }
+    .btn-check{background:#fff;color:#000}
+    .btn-check:hover{transform:translateY(-2px)}
+    .btn-next{background:#000;color:#fff}
+    .btn-next:hover{transform:translateY(-2px)}
+    #feedback{margin-top:12px;font-weight:700}
+    .correct{color:#4CAF50}
+    .wrong{color:#F44336}
+    #score,#timer{margin-top:10px;font-size:1.05rem}
+    #difficulty{margin-top:8px;padding:8px;border-radius:8px;border:none;font-size:1rem}
+    @media (max-width:420px){
+      input[type="number"]{width:90px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main" aria-labelledby="title">
+    <h1 id="title">🎮 Matematch</h1>
+
+    <label for="difficulty">Dificuldade:</label>
+    <select id="difficulty" aria-label="Dificuldade">
+      <option value="10">Fácil (1–10)</option>
+      <option value="50">Médio (1–50)</option>
+      <option value="100">Difícil (1–100)</option>
+    </select>
+
+    <p id="question" aria-live="polite">Carregando...</p>
+
+    <div>
+      <input type="number" id="answer" inputmode="numeric" placeholder="?" autocomplete="off" />
+    </div>
+
+    <div class="controls">
+      <button id="checkBtn" class="btn-check">Verificar</button>
+      <button id="nextBtn" class="btn-next">Próxima</button>
+    </div>
+
+    <p id="feedback" aria-live="polite"></p>
+    <p id="timer">⏳ Tempo: 15s</p>
+    <p id="score">Pontuação: 0</p>
+  </div>
+
+  <script>
+    // Estado do jogo
+    let num1, num2, operator, correctAnswer;
+    let score = 0;
+    let timeLeft = 15;
+    let timerId = null;
+    let isAnswered = false;
+    let timeUp = false;
+
+    // Elementos
+    const difficultyEl = document.getElementById('difficulty');
+    const questionEl = document.getElementById('question');
+    const answerEl = document.getElementById('answer');
+    const feedbackEl = document.getElementById('feedback');
+    const timerEl = document.getElementById('timer');
+    const scoreEl = document.getElementById('score');
+    const checkBtn = document.getElementById('checkBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    // Gera número aleatório inteiro entre min e max inclusive
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateQuestion() {
+      // limpa timer anterior
+      clearInterval(timerId);
+      isAnswered = false;
+      timeUp = false;
+      answerEl.disabled = false;
+      checkBtn.disabled = false;
+      answerEl.value = '';
+      feedbackEl.textContent = '';
+
+      timeLeft = 15;
+      timerEl.textContent = ⏳ Tempo: ${timeLeft}s;
+
+      const max = parseInt(difficultyEl.value, 10) || 10;
+      const operators = ['+', '-', '×', '÷'];
+      operator = operators[randInt(0, operators.length - 1)];
+
+      if (operator === '÷') {
+        // Para divisão exata: escolhe divisor e quociente, calcula o dividendo
+        const divisor = randInt(1, max);
+        const quotient = randInt(1, max);
+        num2 = divisor;
+        correctAnswer = quotient;
+        num1 = divisor * quotient; // dividendo
+      } else {
+        // numeros base
+        num1 = randInt(1, max);
+        num2 = randInt(1, max);
+
+        if (operator === '-') {
+          // evita resultado negativo (mais amigável)
+          if (num1 < num2) [num1, num2] = [num2, num1];
+          correctAnswer = num1 - num2;
+        } else if (operator === '+') {
+          correctAnswer = num1 + num2;
+        } else if (operator === '×') {
+          correctAnswer = num1 * num2;
+        }
+      }
+
+      questionEl.textContent = ${num1} ${operator} ${num2} = ?;
+      // inicia timer para a pergunta atual
+      startTimer();
+      // foca no input
+      setTimeout(() => answerEl.focus(), 60);
+    }
+
+    function startTimer() {
+      clearInterval(timerId);
+      timerId = setInterval(() => {
+        timeLeft--;
+        if (timeLeft >= 0) {
+          timerEl.textContent = ⏳ Tempo: ${timeLeft}s;
+        }
+        if (timeLeft <= 0) {
+          clearInterval(timerId);
+          timeUp = true;
+          isAnswered = true;
+          answerEl.disabled = true;
+          checkBtn.disabled = true;
+          timerEl.textContent = "⏰ Tempo esgotado!";
+          feedbackEl.textContent = ⏰ Acabou! Resposta certa: ${correctAnswer};
+          feedbackEl.className = 'wrong';
+        }
+      }, 1000);
+    }
+
+    function checkAnswer() {
+      if (isAnswered || timeUp) return;
+      const raw = answerEl.value;
+      if (raw === '' || raw === null) return; // evita checar vazio
+
+      clearInterval(timerId);
+      isAnswered = true;
+      answerEl.disabled = true;
+      checkBtn.disabled = true;
+
+      const userAnswer = Number(raw);
+
+      if (Number.isNaN(userAnswer)) {
+        feedbackEl.textContent = 'Digite um número válido.';
+        feedbackEl.className = 'wrong';
+        return;
+      }
+
+      if (userAnswer === correctAnswer) {
+        feedbackEl.textContent = '✔️ Correto!';
+        feedbackEl.className = 'correct';
+        score++;
+      } else {
+        feedbackEl.textContent = ❌ Errado! Resposta certa: ${correctAnswer};
+        feedbackEl.className = 'wrong';
+        // evita pontuação negativa:
+        score = Math.max(0, score - 1);
+      }
+      scoreEl.textContent = Pontuação: ${score};
+    }
+
+    function nextQuestion() {
+      generateQuestion();
+    }
+
+    // Atalhos e listeners
+    checkBtn.addEventListener('click', checkAnswer);
+    nextBtn.addEventListener('click', nextQuestion);
+    difficultyEl.addEventListener('change', generateQuestion);
+
+    // pressionar Enter verifica a resposta
+    answerEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkAnswer();
+      }
+    });
+
+    // inicia o jogo
+    generateQuestion();
+  </script>
+</body>
+</html>
